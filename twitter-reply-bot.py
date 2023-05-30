@@ -34,7 +34,7 @@ class TwitterBot:
 
         self.airtable = Airtable(AIRTABLE_BASE_KEY, AIRTABLE_TABLE_NAME, AIRTABLE_API_KEY)
         self.twitter_me_id = self.get_me_id()
-        self.tweet_response_limit = 30 # How many tweets to respond to each wake up
+        self.tweet_response_limit = 35 # How many tweets to respond to each wake up
 
         self.llm = ChatOpenAI(temperature=.5, openai_api_key=OPENAI_API_KEY)
         self.mentions_found = 0

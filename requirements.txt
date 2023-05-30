@@ -31,6 +31,7 @@ mypy-extensions==1.0.0
 numexpr==2.8.4
 numpy==1.24.3
 oauthlib==3.2.2
+openai==0.27.7
 openapi-schema-pydantic==1.2.4
 packaging==23.1
 protobuf==4.23.2
@@ -50,6 +51,7 @@ synchronicity==0.5.3
 tblib==1.7.0
 tenacity==8.2.2
 toml==0.10.2
+tqdm==4.65.0
 tweepy==4.14.0
 typer==0.9.0
 types-certifi==2021.10.8.3

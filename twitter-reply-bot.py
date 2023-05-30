@@ -16,7 +16,6 @@ TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET", "YourKey")
 TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN", "YourKey")
 TWITTER_ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "YourKey")
 TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN", "YourKey")
-TWEET_RESPONSE_LIMIT = 30 # How many tweets to respond to each wake up
 
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY", "YourKey")
 AIRTABLE_BASE_KEY = os.getenv("AIRTABLE_BASE_KEY", "YourKey")
@@ -35,11 +34,13 @@ class TwitterBot:
 
         self.airtable = Airtable(AIRTABLE_BASE_KEY, AIRTABLE_TABLE_NAME, AIRTABLE_API_KEY)
         self.twitter_me_id = self.get_me_id()
-        self.response_limit = TWEET_RESPONSE_LIMIT
+        self.tweet_response_limit = 30 # How many tweets to respond to each wake up
+
         self.llm = ChatOpenAI(temperature=.5, openai_api_key=OPENAI_API_KEY)
         self.mentions_found = 0
         self.mentions_replied = 0
         self.mentions_replied_errors = 0
+
         
     def execute_replies(self):
         print (f"Starting Job: {datetime.utcnow().isoformat()}")
@@ -76,7 +77,7 @@ class TwitterBot:
         mentions = self.get_mentions()
         self.mentions_found = len(mentions)
 
-        for mention in mentions[:self.response_limit]:
+        for mention in mentions[:self.tweet_response_limit]:
             # Check to see if there is a parent tweet
             mentioned_parent_tweet = self.get_mention_parent_tweet(mention.referenced_tweets)
             
@@ -144,7 +145,7 @@ class TwitterBot:
 
         # get a chat completion from the formatted messages
         final_prompt = chat_prompt.format_prompt(text=mentioned_parent_tweet_text).to_messages()
-        response = llm(final_prompt).content
+        response = self.llm(final_prompt).content
         
         return response
     

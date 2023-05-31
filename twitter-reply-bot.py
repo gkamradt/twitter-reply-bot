@@ -45,13 +45,37 @@ class TwitterBot:
         self.mentions_found = 0
         self.mentions_replied = 0
         self.mentions_replied_errors = 0
-        
-    # The main entry point for the bot with some logging
-    def execute_replies(self):
-        print (f"Starting Job: {datetime.utcnow().isoformat()}")
-        self.respond_to_mentions()
-        print (f"Finished Job: {datetime.utcnow().isoformat()}, Found: {self.mentions_found}, Replied: {self.mentions_replied}, Errors: {self.mentions_replied_errors}")
 
+    # Generate a response using the language model using the template we reviewed in the jupyter notebook (see README)
+    def generate_response(self, mentioned_conversation_tweet_text):
+        # It would be nice to bring in information about the links, pictures, etc. But out of scope for now
+        system_template = """
+            You are a smart mad scientist from silicon valley.
+            Your goal is to give a concise prediction about a piece of text from the user.
+
+            - Include specific examples of old tech if they are relevant
+            - Respond in under 200 characters
+            - Your prediction should be given in an active voice and be opinionated
+            - If you don't have an answer, say, "Sorry, my magic 8 ball isn't working right now 🔮"
+            - Your response should be a prediction
+            - Your tone should be serious sarcastic
+            - Respond in one short sentence
+
+            The user will give you a piece of text to respond to
+        """
+        system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
+
+        human_template="{text}"
+        human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+
+        chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+
+        # get a chat completion from the formatted messages
+        final_prompt = chat_prompt.format_prompt(text=mentioned_conversation_tweet_text).to_messages()
+        response = self.llm(final_prompt).content
+        
+        return response
+    
     # Returns the ID of the authenticated user for tweet creation purposes
     def get_me_id(self):
         return self.twitter_api.get_me()[0].id
@@ -84,7 +108,7 @@ class TwitterBot:
                                                    tweet_fields=['created_at', 'conversation_id']).data
 
     # Checking to see if we've already responded to a mention with what's logged in airtable
-    def already_responded(self, mentioned_conversation_tweet_id):
+    def check_already_responded(self, mentioned_conversation_tweet_id):
         records = self.airtable.get_all(view='Grid view')
         for record in records:
             if record['fields'].get('mentioned_conversation_tweet_id') == str(mentioned_conversation_tweet_id):
@@ -108,7 +132,7 @@ class TwitterBot:
             
             # If the mention *is* the conversation or you've already responded, skip it and don't respond
             if (mentioned_conversation_tweet.id != mention.id
-                and not self.already_responded(mentioned_conversation_tweet.id)):
+                and not self.check_already_responded(mentioned_conversation_tweet.id)):
 
                 self.respond_to_mention(mention, mentioned_conversation_tweet)
         return True
@@ -136,36 +160,12 @@ class TwitterBot:
             'mentioned_at' : mention.created_at.isoformat()
         })
         return True
-
-    # Generate a response using the language model using the template we reviewed in the jupyter notebook (see README)
-    def generate_response(self, mentioned_conversation_tweet_text):
-        # It would be nice to bring in information about the links, pictures, etc. But out of scope for now
-        system_template = """
-            You are a smart mad scientist from silicon valley.
-            Your goal is to give a concise prediction about a piece of text from the user.
-
-            - Include specific examples of old tech if they are relevant
-            - Respond in under 200 characters
-            - Your prediction should be given in an active voice and be opinionated
-            - If you don't have an answer, say, "Sorry, my magic 8 ball isn't working right now 🔮"
-            - Your response should be a prediction
-            - Your tone should be serious sarcastic
-            - Respond in one short sentence
-
-            The user will give you a piece of text to respond to
-        """
-        system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
-
-        human_template="{text}"
-        human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
-
-        chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
-
-        # get a chat completion from the formatted messages
-        final_prompt = chat_prompt.format_prompt(text=mentioned_conversation_tweet_text).to_messages()
-        response = self.llm(final_prompt).content
-        
-        return response
+    
+        # The main entry point for the bot with some logging
+    def execute_replies(self):
+        print (f"Starting Job: {datetime.utcnow().isoformat()}")
+        self.respond_to_mentions()
+        print (f"Finished Job: {datetime.utcnow().isoformat()}, Found: {self.mentions_found}, Replied: {self.mentions_replied}, Errors: {self.mentions_replied_errors}")
 
 # The job that we'll schedule to run every X minutes
 def job():

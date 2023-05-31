@@ -49,19 +49,26 @@ class TwitterBot:
     # Generate a response using the language model using the template we reviewed in the jupyter notebook (see README)
     def generate_response(self, mentioned_conversation_tweet_text):
         # It would be nice to bring in information about the links, pictures, etc. But out of scope for now
+        # Edit this prompt for your own personality!
         system_template = """
-            You are a smart mad scientist from silicon valley.
-            Your goal is to give a concise prediction about a piece of text from the user.
+            You are an incredibly wise and smart tech mad scientist from silicon valley.
+            Your goal is to give a concise prediction in response to a piece of text from the user.
+            
+            % RESPONSE TONE:
+
+            - Your prediction should be given in an active voice and be opinionated
+            - Your tone should be serious w/ a hint of wit and sarcasm
+            
+            % RESPONSE FORMAT:
+
+            - Respond in under 200 characters
+            - Respond in two or less short sentences
+            - Do not respond with emojis
+            
+            % RESPONSE CONTENT:
 
             - Include specific examples of old tech if they are relevant
-            - Respond in under 200 characters
-            - Your prediction should be given in an active voice and be opinionated
             - If you don't have an answer, say, "Sorry, my magic 8 ball isn't working right now 🔮"
-            - Your response should be a prediction
-            - Your tone should be serious sarcastic
-            - Respond in one short sentence
-
-            The user will give you a piece of text to respond to
         """
         system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
 
@@ -75,6 +82,30 @@ class TwitterBot:
         response = self.llm(final_prompt).content
         
         return response
+    
+        # Generate a response using the language model
+    def respond_to_mention(self, mention, mentioned_conversation_tweet):
+        response_text = self.generate_response(mentioned_conversation_tweet.text)
+        
+        # Try and create the response to the tweet. If it fails, log it and move on
+        try:
+            response_tweet = self.twitter_api.create_tweet(text=response_text, in_reply_to_tweet_id=mention.id)
+            self.mentions_replied += 1
+        except Exception as e:
+            print (e)
+            self.mentions_replied_errors += 1
+            return
+        
+        # Log the response in airtable if it was successful
+        self.airtable.insert({
+            'mentioned_conversation_tweet_id': str(mentioned_conversation_tweet.id),
+            'mentioned_conversation_tweet_text': mentioned_conversation_tweet.text,
+            'tweet_response_id': response_tweet.data['id'],
+            'tweet_response_text': response_text,
+            'tweet_response_created_at' : datetime.utcnow().isoformat(),
+            'mentioned_at' : mention.created_at.isoformat()
+        })
+        return True
     
     # Returns the ID of the authenticated user for tweet creation purposes
     def get_me_id(self):
@@ -135,30 +166,6 @@ class TwitterBot:
                 and not self.check_already_responded(mentioned_conversation_tweet.id)):
 
                 self.respond_to_mention(mention, mentioned_conversation_tweet)
-        return True
-
-    # Generate a response using the language model
-    def respond_to_mention(self, mention, mentioned_conversation_tweet):
-        response_text = self.generate_response(mentioned_conversation_tweet.text)
-        
-        # Try and create the response to the tweet. If it fails, log it and move on
-        try:
-            response_tweet = self.twitter_api.create_tweet(text=response_text, in_reply_to_tweet_id=mention.id)
-            self.mentions_replied += 1
-        except Exception as e:
-            print (e)
-            self.mentions_replied_errors += 1
-            return
-        
-        # Log the response in airtable if it was successful
-        self.airtable.insert({
-            'mentioned_conversation_tweet_id': str(mentioned_conversation_tweet.id),
-            'mentioned_conversation_tweet_text': mentioned_conversation_tweet.text,
-            'tweet_response_id': response_tweet.data['id'],
-            'tweet_response_text': response_text,
-            'tweet_response_created_at' : datetime.utcnow().isoformat(),
-            'mentioned_at' : mention.created_at.isoformat()
-        })
         return True
     
         # The main entry point for the bot with some logging
